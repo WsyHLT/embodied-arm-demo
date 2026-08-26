@@ -68,34 +68,42 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
 # TCP 偏移改为沿 site 局部 z(朝下)后, 爪子中心即 TCP, 与腕部竖直贴合、无横杆。
 GRIPPER_XML = """
       <body name="gripper" pos="0 0.1 0">
-        <geom name="gripper_neck" type="cylinder" size="0.013 0.05" pos="0 0.04 0"
-          quat="0.707 0.707 0 0" rgba="0.28 0.28 0.3 1" mass="0.04" friction="0.9 0.05 0.001"/>
-        <geom name="gripper_palm" type="box" size="0.015 0.008 0.015" pos="0 0.09 0"
-          rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"/>
-        <!-- 三根径向辐条: 从掌心连到各指片根部, 让指片不悬空 -->
-        <geom name="gripper_spoke_1" type="box" size="0.024 0.005 0.006" pos="0.025 0.09 0"
-          quat="1 0 0 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"/>
-        <geom name="gripper_spoke_2" type="box" size="0.024 0.005 0.006" pos="-0.0125 0.09 0.02165"
-          quat="0.5 0 -0.866 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"/>
-        <geom name="gripper_spoke_3" type="box" size="0.024 0.005 0.006" pos="-0.0125 0.09 -0.02165"
-          quat="0.5 0 0.866 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"/>
+        <geom name="gripper_neck" type="cylinder" size="0.014 0.055" pos="0 0.045 0"
+          quat="0.707 0.707 0 0" rgba="0.28 0.28 0.3 1" mass="0.04" friction="0.9 0.05 0.001"
+          contype="0" conaffinity="0"/>
+        <geom name="gripper_palm" type="box" size="0.02 0.01 0.02" pos="0 0.1 0"
+          rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"
+          contype="0" conaffinity="0"/>
+        <!-- 三根径向辐条(加粗加长, 提到指片根部同高 y): 掌心连到指片根部, 无缝隙 -->
+        <geom name="gripper_spoke_1" type="box" size="0.037 0.012 0.012" pos="0.037 0.1 0"
+          quat="1 0 0 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"
+          contype="0" conaffinity="0"/>
+        <geom name="gripper_spoke_2" type="box" size="0.037 0.012 0.012" pos="-0.0185 0.1 0.032"
+          quat="0.5 0 -0.866 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"
+          contype="0" conaffinity="0"/>
+        <geom name="gripper_spoke_3" type="box" size="0.037 0.012 0.012" pos="-0.0185 0.1 -0.032"
+          quat="0.5 0 0.866 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"
+          contype="0" conaffinity="0"/>
         <body name="finger_1" pos="0.05 0.1 0">
           <joint name="gripper_1" type="slide" axis="1 0 0" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_1_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
-            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
+            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"
+            contype="0" conaffinity="0"/>
         </body>
         <body name="finger_2" pos="-0.025 0.1 0.0433">
           <joint name="gripper_2" type="slide" axis="-0.5 0 0.866" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_2_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
-            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
+            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"
+            contype="0" conaffinity="0"/>
         </body>
         <body name="finger_3" pos="-0.025 0.1 -0.0433">
           <joint name="gripper_3" type="slide" axis="-0.5 0 -0.866" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_3_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
-            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
+            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"
+            contype="0" conaffinity="0"/>
         </body>
       </body>
     """
