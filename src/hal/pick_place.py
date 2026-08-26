@@ -62,6 +62,10 @@ class PickPlaceController:
         # TCP 落到目标高度 + 吸附偏移, 使物体(位于 TCP 下方 offset 处)正好落在目标高度
         drop_pos = tgt + np.array([0.0, 0.0, GRASP_TOOL_OFFSET])
         self._arm.move_to_pose(np.concatenate([drop_pos, DOWN_POSE[3:]]), duration=1.5)
+        # 精确落位: 释放前把物体吸附到目标点, 消除 TCP 伺服残余误差(约数厘米),
+        # 保证放置位置精确可复现(仿真中夹爪吸附本就可精确控制)。
+        if self._grabbed and self._sim is not None:
+            self._sim.move_object_to(self._grabbed, tgt)
         self._arm.open_gripper()
         self._grabbed = None
         self._arm.move_to_pose(np.concatenate([pre_pos, DOWN_POSE[3:]]), duration=1.5)

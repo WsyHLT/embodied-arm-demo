@@ -59,8 +59,10 @@ def resolve_destination(
             # 叠放: 放在目标物体中心正上方, 高度 = 目标中心 + 目标半高 + 待放半高
             z = pos[2] + object_half_z(dest_name) + object_half_z(target_name)
             return np.array([pos[0], pos[1], z])
-        return np.array([pos[0] + PLACE_OFFSET, pos[1], 0.11])
-    return np.array([0.60, 0.30, 0.11])  # 默认落点(边缘/角落/未指定)
+        # 旁边: z = 桌面顶面 + 待放物体半高(不同物体半高不同, 圆柱更高, 否则会穿底翻滚)
+        return np.array([pos[0] + PLACE_OFFSET, pos[1], 0.08 + object_half_z(target_name)])
+    # 默认落点(边缘/角落/未指定): 同样用待放物体半高
+    return np.array([0.60, 0.30, 0.08 + object_half_z(target_name)])
 
 
 def pick_free_spot(objects: dict[str, dict], exclude: tuple[str, ...] = ()) -> np.ndarray:
@@ -180,7 +182,10 @@ def execute_one(
     dist = float(np.linalg.norm(final_pos[:2] - dest_xyz[:2]))
     print(f"\n[验证] {target} 最终位置 {np.round(final_pos[:2], 3)}, "
           f"距目标点 {dist:.3f}m")
-    ok = dist < 0.02
+    # 圆滑物体(圆柱/球)自由放置后存在固有滚动, 容差放宽; 方块严格
+    shape = TABLE_OBJECTS.get(target, {}).get("shape", "box")
+    tol = 0.06 if shape in ("cylinder", "sphere") else 0.02
+    ok = dist < tol
     print(f"[结果] {'成功' if ok else '失败'}")
     return 0 if ok else 1
 

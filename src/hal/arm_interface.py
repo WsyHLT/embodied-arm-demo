@@ -75,8 +75,12 @@ class MuJoCoArm(ArmInterface):
         self._sync_attached()
 
     def open_gripper(self) -> None:
-        """张开夹爪并释放物体。"""
-        self._sim.set_gripper(1.0)
+        """张开夹爪并释放物体。
+
+        用 settle=False 只设置张爪目标、不额外跑物理——避免在物体精确落位后
+        再经物理步导致圆柱等自由物体滚动/偏移。
+        """
+        self._sim.set_gripper(1.0, settle=False)
         self._detach_object()
 
     def close_gripper(self, object_name: str | None = None) -> bool:

@@ -65,26 +65,26 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
 # 手指带高摩擦, 用于真实接触夹持 + 接触力反馈判断。
 GRIPPER_XML = """
       <body name="gripper" pos="0 0.1 0">
-        <geom name="gripper_palm" type="box" size="0.03 0.02 0.006" pos="0 0 -0.006"
-          rgba="0.25 0.25 0.25 1" mass="0.05" friction="0.9 0.05 0.001"/>
-        <body name="finger_L" pos="0.05 0 0">
-          <joint name="gripper_L" type="slide" axis="1 0 0" limited="true" range="-0.06 0.005"
+        <geom name="gripper_palm" type="box" size="0.014 0.018 0.022" pos="0.08 0 0"
+          rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"/>
+        <body name="finger_L" pos="0.1 0.04 0.05">
+          <joint name="gripper_L" type="slide" axis="0 0 1" limited="true" range="-0.06 0.02"
             armature="0.001"/>
-          <geom name="finger_L_geom" type="box" size="0.004 0.007 0.032" pos="0 0 -0.034"
+          <geom name="finger_L_geom" type="box" size="0.006 0.028 0.006" pos="0 0.03 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
         </body>
-        <body name="finger_R" pos="-0.05 0 0">
-          <joint name="gripper_R" type="slide" axis="1 0 0" limited="true" range="-0.005 0.06"
+        <body name="finger_R" pos="0.1 0.04 -0.05">
+          <joint name="gripper_R" type="slide" axis="0 0 1" limited="true" range="-0.02 0.06"
             armature="0.001"/>
-          <geom name="finger_R_geom" type="box" size="0.004 0.007 0.032" pos="0 0 -0.034"
+          <geom name="finger_R_geom" type="box" size="0.006 0.028 0.006" pos="0 0.03 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
         </body>
       </body>
     """
 
 GRIPPER_ACT_XML = """
-    <general class="ur5e" name="gripper_L" joint="gripper_L" ctrlrange="-0.05 0.005"/>
-    <general class="ur5e" name="gripper_R" joint="gripper_R" ctrlrange="-0.005 0.05"/>
+    <general class="ur5e" name="gripper_L" joint="gripper_L" ctrlrange="-0.03 0.02"/>
+    <general class="ur5e" name="gripper_R" joint="gripper_R" ctrlrange="-0.02 0.03"/>
   """
 
 
@@ -212,9 +212,9 @@ class UR5eSim:
         是否"夹住"由上层用几何判定(物体是否在 TCP 正下方), 不依赖物理接触。
         """
         open_fraction = min(max(float(open_fraction), 0.0), 1.0)
-        # L: +0.005 张开 → -0.03 闭合; R: -0.005 张开 → +0.03 闭合
-        L = 0.005 + (open_fraction - 1.0) * (-0.035)   # open=1 -> 0.005; close=0 -> -0.03
-        R = -0.005 + (open_fraction - 1.0) * (0.035)
+        # 手指沿局部 z(全局横向)开合: 张开 L=+0.02/R=-0.02, 闭合 L=-0.02/R=+0.02
+        L = 0.02 + (open_fraction - 1.0) * 0.04   # open=1 -> 0.02; close=0 -> -0.02
+        R = -0.02 + (open_fraction - 1.0) * 0.04
         self.data.ctrl[self._gripper_act[0]] = L
         self.data.ctrl[self._gripper_act[1]] = R
         if settle:
