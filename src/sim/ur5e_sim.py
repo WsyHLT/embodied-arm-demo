@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import threading
 import time
 
@@ -19,21 +20,44 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 
-ASSET_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "ur5e")
+# 物体定义收敛在 config/objects.py —— 从这里读取, 避免多处硬编码。
+# 把项目根下 config 加入 path, 便于作为独立脚本 / 测试直接 import。
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CONFIG_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "config"))
+if _CONFIG_DIR not in sys.path:
+    sys.path.insert(0, _CONFIG_DIR)
+from config.objects import TABLE_OBJECTS, DEFAULT_OBJECT_XY  # noqa: E402
+
+ASSET_DIR = os.path.join(_HERE, "..", "..", "assets", "ur5e")
 UR5E_XML = os.path.join(ASSET_DIR, "ur5e.xml")
 
-# 桌面物体表: {物体名: (半尺寸, 颜色, 位置x, 位置y, 高度)}
-TABLE_OBJECTS: dict[str, dict] = {
-    "red_cube": {"half_size": (0.03, 0.03, 0.03), "rgba": (0.9, 0.1, 0.1, 1.0)},
-    "blue_cube": {"half_size": (0.03, 0.03, 0.03), "rgba": (0.1, 0.2, 0.9, 1.0)},
-    "green_cylinder": {"half_size": (0.03, 0.03, 0.04), "rgba": (0.1, 0.8, 0.2, 1.0)},
-}
 
-DEFAULT_OBJECT_XY = {
-    "red_cube": (0.45, -0.15),
-    "blue_cube": (0.45, 0.15),
-    "green_cylinder": (0.55, 0.0),
-}
+def _object_half_z_local(shape: str, hs: tuple) -> float:
+    """物体在 z 方向的半尺寸(决定落稳后的中心高度)。"""
+    if shape == "sphere":
+        return float(hs[0])
+    return float(hs[2])
+
+
+def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str:
+    """按几何形状生成 MuJoCo geom 的 XML 片段。
+
+    MuJoCo 尺寸约定:
+      box      -> size="hx hy hz"
+      cylinder -> size="radius halfheight"
+      sphere   -> size="radius"
+    """
+    r, g, b, a = rgba
+    base = f'<geom name="{name}_geom" rgba="{r} {g} {b} {a}" mass="{mass}"'
+    if shape == "cylinder":
+        size = f"{hs[0]} {hs[2]}"          # (半径, 半高)
+        return f'{base} type="cylinder" size="{size}"/>\n'
+    if shape == "sphere":
+        size = f"{hs[0]}"                  # (半径)
+        return f'{base} type="sphere" size="{size}"/>\n'
+    # 默认 box
+    size = f"{hs[0]} {hs[1]} {hs[2]}"
+    return f'{base} type="box" size="{size}"/>\n'
 
 
 def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
@@ -52,12 +76,14 @@ def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
         spec = TABLE_OBJECTS[name]
         hs = spec["half_size"]
         rgba = spec["rgba"]
-        start_z = TABLE_TOP_Z + hs[2]  # 物体中心略高于桌面, 自由落体落稳
+        shape = spec["shape"]
+        mass = spec.get("mass", 0.15)
+        start_z = TABLE_TOP_Z + _object_half_z_local(shape, hs)  # 略高于桌面, 自由落体落稳
+        geom = _geom_xml(name, shape, hs, rgba, mass)
         obj_blocks.append(
             f'<body name="{name}" pos="{x} {y} {start_z:.3f}">'
             f'<freejoint name="{name}_joint"/>'
-            f'<geom name="{name}_geom" type="box" size="{hs[0]} {hs[1]} {hs[2]}" '
-            f'rgba="{rgba[0]} {rgba[1]} {rgba[2]} {rgba[3]}" mass="0.15"/>'
+            f"{geom}"
             f"</body>"
         )
     world_extra = (

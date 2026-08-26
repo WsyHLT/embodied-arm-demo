@@ -10,9 +10,19 @@
 """
 from __future__ import annotations
 
+import os
+import sys
+
 import numpy as np
 
 import mujoco
+
+# CLIP 英文描述单点配置在 config/objects.py, 此处不硬编码。
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CONFIG_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "config"))
+if _CONFIG_DIR not in sys.path:
+    sys.path.insert(0, _CONFIG_DIR)
+from config.objects import CLIP_DESCRIPTIONS  # noqa: E402
 
 
 class VisionSystem:
@@ -41,12 +51,8 @@ class VisionSystem:
         import open_clip
         import torch
 
-        zh_en = {
-            "red_cube": "a red cube",
-            "blue_cube": "a blue cube",
-            "green_cylinder": "a green cylinder",
-        }
-        en = zh_en.get(text, f"an object named {text}")
+        # 英文描述来自 config/objects.py(单点配置), 未知物体兜底
+        en = CLIP_DESCRIPTIONS.get(text, f"an object named {text}")
         return open_clip.tokenize([en])
 
     # ---------- 渲染俯视图 ----------

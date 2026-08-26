@@ -18,32 +18,16 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 
 import requests
 
-# 场景物体别名 → 规范名
-OBJECT_ALIASES: dict[str, str] = {
-    "红色方块": "red_cube",
-    "红色的方块": "red_cube",
-    "红色立方体": "red_cube",
-    "红块": "red_cube",
-    "红的": "red_cube",
-    "红色的": "red_cube",
-    "蓝色方块": "blue_cube",
-    "蓝色的方块": "blue_cube",
-    "蓝色立方体": "blue_cube",
-    "蓝块": "blue_cube",
-    "蓝的": "blue_cube",
-    "蓝色的": "blue_cube",
-    "绿色圆柱": "green_cylinder",
-    "绿色的圆柱": "green_cylinder",
-    "绿色柱子": "green_cylinder",
-    "绿圆柱": "green_cylinder",
-    "绿的": "green_cylinder",
-    "绿色的": "green_cylinder",
-    "绿块": "green_cylinder",
-    "圆柱": "green_cylinder",
-}
+# 物体别名单点配置在 config/objects.py, 此处只导入, 不再各自硬编码。
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_CONFIG_DIR = os.path.abspath(os.path.join(_HERE, "..", "..", "config"))
+if _CONFIG_DIR not in sys.path:
+    sys.path.insert(0, _CONFIG_DIR)
+from config.objects import OBJECT_ALIASES  # noqa: E402
 
 # 叠放语义关键词 → placement = "stack"(放正上方); 否则 "beside"(放旁边)
 STACK_KEYWORDS = ["上面", "之上", "上头", "叠", "堆", "摞"]
