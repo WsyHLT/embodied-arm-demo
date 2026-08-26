@@ -72,6 +72,13 @@ GRIPPER_XML = """
           quat="0.707 0.707 0 0" rgba="0.28 0.28 0.3 1" mass="0.04" friction="0.9 0.05 0.001"/>
         <geom name="gripper_palm" type="box" size="0.015 0.008 0.015" pos="0 0.09 0"
           rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"/>
+        <!-- 三根径向辐条: 从掌心连到各指片根部, 让指片不悬空 -->
+        <geom name="gripper_spoke_1" type="box" size="0.024 0.005 0.006" pos="0.025 0.09 0"
+          quat="1 0 0 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"/>
+        <geom name="gripper_spoke_2" type="box" size="0.024 0.005 0.006" pos="-0.0125 0.09 0.02165"
+          quat="0.5 0 -0.866 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"/>
+        <geom name="gripper_spoke_3" type="box" size="0.024 0.005 0.006" pos="-0.0125 0.09 -0.02165"
+          quat="0.5 0 0.866 0" rgba="0.3 0.3 0.32 1" mass="0.01" friction="0.9 0.05 0.001"/>
         <body name="finger_1" pos="0.05 0.1 0">
           <joint name="gripper_1" type="slide" axis="1 0 0" limited="true" range="-0.04 0.02"
             armature="0.001"/>
