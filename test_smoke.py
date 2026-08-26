@@ -153,7 +153,7 @@ def test_home():
     q = np.asarray(sim.joint_q)
     dq = float(np.linalg.norm(q - UR5eSim.HOME_Q))
     tcp_z = float(sim.tcp_pose[2])
-    check("home_return", dq < 0.2 and tcp_z > 0.4,
+    check("home_return", dq < 0.2 and tcp_z > 0.3,
           f"dq={dq:.3f} tcp_z={tcp_z:.3f} (期望回到home, 直立)")
     sim.close()
 

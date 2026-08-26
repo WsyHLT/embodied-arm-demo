@@ -63,27 +63,28 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
 
 # 平行夹爪注入片段: 手掌 + 两根沿 y 轴开合的滑轨手指(挂在 attachment_site 处)。
 # 手指带高摩擦, 用于真实接触夹持 + 接触力反馈判断。
-# 娃娃机式三爪夹爪: 中央掌心 + 三根围绕 TCP 中心呈 120° 均布的指片(一圈),
-# 沿径向(局部 x-z 平面, 腕朝下=全局水平)滑轨开合, 指尖沿局部 y(全局向下)。
+# 娃娃机式三爪: 机械臂头(site)正下方竖直连接(沿 gripper +y=全局向下),
+# 三根指片围绕 TCP(gripper 局部 y=0.1)在水平面(x-z)呈 120° 一圈, 指尖朝下。
+# TCP 偏移改为沿 site 局部 z(朝下)后, 爪子中心即 TCP, 与腕部竖直贴合、无横杆。
 GRIPPER_XML = """
       <body name="gripper" pos="0 0.1 0">
-        <geom name="gripper_neck" type="cylinder" size="0.015 0.07" pos="0.03 0 0"
-          quat="0.707 0 0.707 0" rgba="0.28 0.28 0.3 1" mass="0.04" friction="0.9 0.05 0.001"/>
-        <geom name="gripper_palm" type="box" size="0.014 0.012 0.014" pos="0.1 0 0"
+        <geom name="gripper_neck" type="cylinder" size="0.013 0.05" pos="0 0.04 0"
+          quat="0.707 0.707 0 0" rgba="0.28 0.28 0.3 1" mass="0.04" friction="0.9 0.05 0.001"/>
+        <geom name="gripper_palm" type="box" size="0.015 0.008 0.015" pos="0 0.09 0"
           rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"/>
-        <body name="finger_1" pos="0.15 0 0">
+        <body name="finger_1" pos="0.05 0.1 0">
           <joint name="gripper_1" type="slide" axis="1 0 0" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_1_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
         </body>
-        <body name="finger_2" pos="0.075 0 0.0433">
+        <body name="finger_2" pos="-0.025 0.1 0.0433">
           <joint name="gripper_2" type="slide" axis="-0.5 0 0.866" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_2_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
         </body>
-        <body name="finger_3" pos="0.075 0 -0.0433">
+        <body name="finger_3" pos="-0.025 0.1 -0.0433">
           <joint name="gripper_3" type="slide" axis="-0.5 0 -0.866" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_3_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
@@ -268,7 +269,7 @@ class UR5eSim:
         pos = self.data.site("attachment_site").xpos.copy()
         rot = self.data.site("attachment_site").xmat.reshape(3, 3)
         # TCP 点 = 末端 site 沿其本地 x 轴偏移 0.1(对齐 UR 工具)
-        local_offset = rot @ np.array([0.1, 0.0, 0.0])
+        local_offset = rot @ np.array([0.0, 0.0, 0.1])
         tcp_pos = pos + local_offset
         rpy = self._rotation_matrix_to_rpy(rot)
         return np.concatenate([tcp_pos, rpy])
@@ -414,7 +415,7 @@ class UR5eSim:
             site = self.data.site("attachment_site")
             pos = site.xpos.copy()
             rot = site.xmat.reshape(3, 3)
-            tcp = pos + rot @ np.array([0.1, 0.0, 0.0])
+            tcp = pos + rot @ np.array([0.0, 0.0, 0.1])
             err_pos = target_pos - tcp
             dR = target_rot @ rot.T
             angle = np.arccos(np.clip((np.trace(dR) - 1.0) / 2.0, -1.0, 1.0))
@@ -455,7 +456,7 @@ class UR5eSim:
                 site = self.data.site("attachment_site")
                 pos = site.xpos.copy()
                 rot = site.xmat.reshape(3, 3)
-                tcp = pos + rot @ np.array([0.1, 0.0, 0.0])
+                tcp = pos + rot @ np.array([0.0, 0.0, 0.1])
                 err = float(np.linalg.norm(tcp - target_pos))
                 cond = self._pose_jacobian_cond(q)
                 # 极奇异解直接剔除;
