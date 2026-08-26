@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# 环境变量 / 密钥(严禁提交)
+.env
+.env.local
+*.key
+
+# 构建产物
+dist/
+build/
+*.log
+
+# IDE / 系统
+.vscode/
+.idea/
+.DS_Store
+
+# 运行生成的杂散文件
+MJDATA.TXT
+MUJOCO_LOG.TXT
