@@ -67,6 +67,8 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
 # 沿径向(局部 x-z 平面, 腕朝下=全局水平)滑轨开合, 指尖沿局部 y(全局向下)。
 GRIPPER_XML = """
       <body name="gripper" pos="0 0.1 0">
+        <geom name="gripper_neck" type="cylinder" size="0.015 0.07" pos="0.03 0 0"
+          quat="0.707 0 0.707 0" rgba="0.28 0.28 0.3 1" mass="0.04" friction="0.9 0.05 0.001"/>
         <geom name="gripper_palm" type="box" size="0.014 0.012 0.014" pos="0.1 0 0"
           rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"/>
         <body name="finger_1" pos="0.15 0 0">
