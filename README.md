@@ -129,6 +129,35 @@ py main.py -i --no-clip                                  # 交互式 REPL
 
 ---
 
+## 自定义场景物体
+
+物体的颜色 / 形状 / 尺寸 / 数量 / 初始位置 / 中文名 / CLIP 描述**全部收敛在
+`config/objects.py`**，改这一个文件即可，其余模块(场景生成、物体清单、指令别名、
+视觉分类)都自动从它派生。不再需要到处同步。
+
+```python
+# config/objects.py
+OBJECTS = [
+    {
+        "name": "red_cube",            # 物体唯一规范名(英文小写)
+        "shape": "box",                # box | cylinder | sphere
+        "half_size": (0.03, 0.03, 0.03),  # box: 半长xyz; cyl/sphere: 半径...
+        "rgba": (0.9, 0.1, 0.1, 1.0),     # 颜色 (r,g,b,a)
+        "mass": 0.15,                     # 质量(kg)
+        "pos": (0.45, -0.15),             # 初始桌面位置 (x,y)
+        "aliases": ["红色方块", "红的"],   # 中文名 -> 映射到 name
+        "clip": "a red cube",              # CLIP 英文描述
+    },
+    ...
+]
+```
+
+- **改颜色** → 改 `rgba`；**改形状** → 改 `shape`(box/cylinder/sphere)；
+  **改大小** → 改 `half_size`；**改位置** → 改 `pos`。
+- **加一个物体** → 在 `OBJECTS` 列表里复制并改一项即可。
+- 改完直接跑 `py test_smoke.py` 回归即可。
+
+---
 
 ## 测试
 
