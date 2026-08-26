@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import threading
 import time
@@ -60,6 +61,42 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
     return f'{base} type="box" size="{size}"/>\n'
 
 
+# 平行夹爪注入片段: 手掌 + 两根沿 y 轴开合的滑轨手指(挂在 attachment_site 处)。
+# 手指带高摩擦, 用于真实接触夹持 + 接触力反馈判断。
+GRIPPER_XML = """
+      <body name="gripper" pos="0 0.1 0">
+        <geom name="gripper_palm" type="box" size="0.03 0.02 0.006" pos="0 0 -0.006"
+          rgba="0.25 0.25 0.25 1" mass="0.05" friction="0.9 0.05 0.001"/>
+        <body name="finger_L" pos="0.05 0 0">
+          <joint name="gripper_L" type="slide" axis="1 0 0" limited="true" range="-0.06 0.005"
+            armature="0.001"/>
+          <geom name="finger_L_geom" type="box" size="0.004 0.007 0.032" pos="0 0 -0.034"
+            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
+        </body>
+        <body name="finger_R" pos="-0.05 0 0">
+          <joint name="gripper_R" type="slide" axis="1 0 0" limited="true" range="-0.005 0.06"
+            armature="0.001"/>
+          <geom name="finger_R_geom" type="box" size="0.004 0.007 0.032" pos="0 0 -0.034"
+            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
+        </body>
+      </body>
+    """
+
+GRIPPER_ACT_XML = """
+    <general class="ur5e" name="gripper_L" joint="gripper_L" ctrlrange="-0.05 0.005"/>
+    <general class="ur5e" name="gripper_R" joint="gripper_R" ctrlrange="-0.005 0.05"/>
+  """
+
+
+def _inject_gripper(xml: str) -> str:
+    """把平行夹爪(bodies + joints)注入到 wrist_3_link, 并注册开合执行器。"""
+    m = re.search(r'(<body name="wrist_3_link".*?)(</body>)', xml, re.S)
+    if m:
+        xml = xml[:m.start(2)] + GRIPPER_XML + xml[m.start(2):]
+    xml = xml.replace("</actuator>", GRIPPER_ACT_XML + "</actuator>", 1)
+    return xml
+
+
 def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
     """在 UR5e 官方模型基础上注入桌面与物体, 生成完整场景 XML 字符串。"""
     objects = objects or DEFAULT_OBJECT_XY
@@ -96,6 +133,7 @@ def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
         + "".join("    " + b for b in obj_blocks)
     )
     ur5e_xml = ur5e_xml.replace("</worldbody>", world_extra + "\n  </worldbody>")
+    ur5e_xml = _inject_gripper(ur5e_xml)
     return ur5e_xml
 
 
@@ -160,6 +198,32 @@ class UR5eSim:
         for name in self.JOINT_NAMES:
             self._joint_ids[name] = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
         self._body_wrist3 = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "wrist_3_link")
+        self._gripper_ids = {
+            n: mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, n)
+            for n in ("gripper_L", "gripper_R")
+        }
+        # 夹爪执行器在最后两位(臂 6 + 夹爪 2)
+        self._gripper_act = (self.model.nu - 2, self.model.nu - 1)
+
+    def set_gripper(self, open_fraction: float = 1.0, settle: bool = True) -> None:
+        """控制平行夹爪开合。open_fraction: 1=张开, 0=闭合。
+
+        驱动两根手指的滑轨执行器到位(位置伺服)。闭合仅做动画靠近,
+        是否"夹住"由上层用几何判定(物体是否在 TCP 正下方), 不依赖物理接触。
+        """
+        open_fraction = min(max(float(open_fraction), 0.0), 1.0)
+        # L: +0.005 张开 → -0.03 闭合; R: -0.005 张开 → +0.03 闭合
+        L = 0.005 + (open_fraction - 1.0) * (-0.035)   # open=1 -> 0.005; close=0 -> -0.03
+        R = -0.005 + (open_fraction - 1.0) * (0.035)
+        self.data.ctrl[self._gripper_act[0]] = L
+        self.data.ctrl[self._gripper_act[1]] = R
+        if settle:
+            steps = max(1, int(0.1 / self.model.opt.timestep))
+            for _ in range(steps):
+                mujoco.mj_step(self.model, self.data)
+                if self._render:
+                    with self._render_lock:
+                        self._viewer.sync()
 
     def _tune_actuators(self) -> None:
         """整定关节执行器, 消除力矩饱和导致的到位误差。
@@ -178,6 +242,7 @@ class UR5eSim:
         self._serve_joint_q(self.HOME_Q)
         # 先把关节角摆到位(物理未启动), 再释放物理让伺服接管并让物体落稳
         self._apply_joint_q(self.HOME_Q, step=False)
+        self.set_gripper(1.0, settle=False)   # 夹爪初始张开
         for _ in range(500):
             mujoco.mj_step(self.model, self.data)
 

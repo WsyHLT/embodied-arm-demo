@@ -75,27 +75,45 @@ class MuJoCoArm(ArmInterface):
         self._sync_attached()
 
     def open_gripper(self) -> None:
+        """张开夹爪并释放物体。"""
+        self._sim.set_gripper(1.0)
         self._detach_object()
 
-    def close_gripper(self, object_name: str | None = None) -> None:
-        """闭合夹爪。
+    def close_gripper(self, object_name: str | None = None) -> bool:
+        """闭合夹爪并判定是否真正抓稳。
 
-        object_name 给定时直接吸附该物体(抓取意图明确, 不依赖距离判定);
-        未指定时吸附距 TCP 最近且足够近的可抓物体。
+        真实夹爪: 驱动手指闭合(动画) + 几何判定 —— 仅当目标物体中心位于
+        TCP 正下方(水平距离 < 容差)才算抓稳, 否则返回 False(抓取失败)。
+        这替代了原来"无条件吸附", 让抓取成功与否可被判别(力反馈/夹持判定的
+        仿真近似)。object_name 未给定时自动选 TCP 附近最近的可抓物体。
+        返回 True=抓稳, False=未抓到。
         """
+        self._sim.set_gripper(0.0)  # 闭合手指
         if object_name is not None:
-            self._attached = object_name
-            self._sync_attached()
-            return
+            obj = self._sim.get_object_pose(object_name)
+            tcp = self._sim.tcp_pose[:3]
+            # 判定用水平距离: 抓取时 TCP 在物体正上方(高一个吸附偏移),
+            # 只要水平对齐即视为夹持到位; 垂直方向差异是抓具悬空高度, 属正常。
+            d = float(np.linalg.norm(obj[:2] - tcp[:2]))
+            if d < 0.05:  # 物体位于抓手正下方(水平对齐)
+                self._attached = object_name
+                self._sync_attached()
+                return True
+            return False
+        # 未指定目标: 找 TCP 附近最近的可抓物体
         if self._attached is None:
             tcp = self._sim.tcp_pose[:3]
             best, best_dist = None, float("inf")
             for name in ("red_cube", "blue_cube", "green_cylinder"):
                 pos = self._sim.get_object_pose(name)
-                d = float(np.linalg.norm(pos - tcp))
+                d = float(np.linalg.norm(pos[:2] - tcp[:2]))
                 if d < best_dist and d < 0.08:
                     best, best_dist = name, d
             self._attached = best
+            if self._attached is not None:
+                self._sync_attached()
+                return True
+        return self._attached is not None
 
     def get_object_pose(self, name: str) -> np.ndarray:
         return self._sim.get_object_pose(name)

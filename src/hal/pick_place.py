@@ -46,7 +46,9 @@ class PickPlaceController:
             np.concatenate([[obj[0], obj[1], grasp_z], DOWN_POSE[3:]]), duration=1.5
         )
         # 3. 闭合夹爪 + 吸附物体(仅仿真)
-        self._arm.close_gripper(object_name)
+        if not self._arm.close_gripper(object_name):
+            print(f"[抓取] 夹爪未抓稳 {object_name}(物体不在抓手正下方/已滑落)")
+            return False
         self._grabbed = object_name
         # 4. 抬起
         self._arm.move_to_pose(np.concatenate([pre_pos, DOWN_POSE[3:]]), duration=1.5)
