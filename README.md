@@ -5,6 +5,10 @@
 一个以**真机落地**为目标、强调**硬件抽象 + 大模型决策 + Sim-to-Real 鲁棒性**的具身智能动手实践。
 复用了 MuJoCo + DeepSeek + OpenCLIP 的轻量链路，可为面试/展示提供完整的"感知→决策→执行"闭环。
 
+<img width="769" height="799" alt="d85517c3c56c8599bc241af2d78abafc" src="https://github.com/user-attachments/assets/da51cd06-1254-499b-874a-543da339be3c" />
+<img width="1282" height="759" alt="cd91aadeaa118a0e04aa79f6126a8234" src="https://github.com/user-attachments/assets/a8265c5d-e59d-408e-b7b6-61ba30359754" />
+
+
 ---
 
 ## 与实习经历的衔接
