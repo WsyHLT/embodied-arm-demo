@@ -63,28 +63,37 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
 
 # 平行夹爪注入片段: 手掌 + 两根沿 y 轴开合的滑轨手指(挂在 attachment_site 处)。
 # 手指带高摩擦, 用于真实接触夹持 + 接触力反馈判断。
+# 娃娃机式三爪夹爪: 中央掌心 + 三根围绕 TCP 中心呈 120° 均布的指片(一圈),
+# 沿径向(局部 x-z 平面, 腕朝下=全局水平)滑轨开合, 指尖沿局部 y(全局向下)。
 GRIPPER_XML = """
       <body name="gripper" pos="0 0.1 0">
-        <geom name="gripper_palm" type="box" size="0.014 0.018 0.022" pos="0.08 0 0"
+        <geom name="gripper_palm" type="box" size="0.014 0.012 0.014" pos="0.1 0 0"
           rgba="0.2 0.2 0.22 1" mass="0.05" friction="0.9 0.05 0.001"/>
-        <body name="finger_L" pos="0.1 0.04 0.05">
-          <joint name="gripper_L" type="slide" axis="0 0 1" limited="true" range="-0.06 0.02"
+        <body name="finger_1" pos="0.15 0 0">
+          <joint name="gripper_1" type="slide" axis="1 0 0" limited="true" range="-0.04 0.02"
             armature="0.001"/>
-          <geom name="finger_L_geom" type="box" size="0.006 0.028 0.006" pos="0 0.03 0"
+          <geom name="finger_1_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
         </body>
-        <body name="finger_R" pos="0.1 0.04 -0.05">
-          <joint name="gripper_R" type="slide" axis="0 0 1" limited="true" range="-0.02 0.06"
+        <body name="finger_2" pos="0.075 0 0.0433">
+          <joint name="gripper_2" type="slide" axis="-0.5 0 0.866" limited="true" range="-0.04 0.02"
             armature="0.001"/>
-          <geom name="finger_R_geom" type="box" size="0.006 0.028 0.006" pos="0 0.03 0"
+          <geom name="finger_2_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
+            rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
+        </body>
+        <body name="finger_3" pos="0.075 0 -0.0433">
+          <joint name="gripper_3" type="slide" axis="-0.5 0 -0.866" limited="true" range="-0.04 0.02"
+            armature="0.001"/>
+          <geom name="finger_3_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"/>
         </body>
       </body>
     """
 
 GRIPPER_ACT_XML = """
-    <general class="ur5e" name="gripper_L" joint="gripper_L" ctrlrange="-0.03 0.02"/>
-    <general class="ur5e" name="gripper_R" joint="gripper_R" ctrlrange="-0.02 0.03"/>
+    <general class="ur5e" name="gripper_1" joint="gripper_1" ctrlrange="-0.04 0.02"/>
+    <general class="ur5e" name="gripper_2" joint="gripper_2" ctrlrange="-0.04 0.02"/>
+    <general class="ur5e" name="gripper_3" joint="gripper_3" ctrlrange="-0.04 0.02"/>
   """
 
 
@@ -200,10 +209,10 @@ class UR5eSim:
         self._body_wrist3 = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "wrist_3_link")
         self._gripper_ids = {
             n: mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, n)
-            for n in ("gripper_L", "gripper_R")
+            for n in ("gripper_1", "gripper_2", "gripper_3")
         }
-        # 夹爪执行器在最后两位(臂 6 + 夹爪 2)
-        self._gripper_act = (self.model.nu - 2, self.model.nu - 1)
+        # 夹爪执行器在最后三位(臂 6 + 夹爪 3)
+        self._gripper_act = (self.model.nu - 3, self.model.nu - 2, self.model.nu - 1)
 
     def set_gripper(self, open_fraction: float = 1.0, settle: bool = True) -> None:
         """控制平行夹爪开合。open_fraction: 1=张开, 0=闭合。
@@ -212,11 +221,10 @@ class UR5eSim:
         是否"夹住"由上层用几何判定(物体是否在 TCP 正下方), 不依赖物理接触。
         """
         open_fraction = min(max(float(open_fraction), 0.0), 1.0)
-        # 手指沿局部 z(全局横向)开合: 张开 L=+0.02/R=-0.02, 闭合 L=-0.02/R=+0.02
-        L = 0.02 + (open_fraction - 1.0) * 0.04   # open=1 -> 0.02; close=0 -> -0.02
-        R = -0.02 + (open_fraction - 1.0) * 0.04
-        self.data.ctrl[self._gripper_act[0]] = L
-        self.data.ctrl[self._gripper_act[1]] = R
+        # 三爪沿各自径向开合: 张开(向外) = +0.02, 闭合(向中心) = -0.02
+        val = 0.02 + (open_fraction - 1.0) * 0.04   # open=1 -> +0.02; close=0 -> -0.02
+        for a in self._gripper_act:
+            self.data.ctrl[a] = val
         if settle:
             steps = max(1, int(0.1 / self.model.opt.timestep))
             for _ in range(steps):
