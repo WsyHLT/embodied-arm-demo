@@ -91,6 +91,17 @@ def run_instruction(
         for i, s in enumerate(steps, 1):
             print(f"   Step{i}: {json.dumps(s, ensure_ascii=False)}")
 
+        # 大脑思维可视化: 在 3D 视图上叠加显示思考过程与计划
+        if sim is not None:
+            overlay_lines = [
+                f"【思考】{plan.get('reasoning', '')}",
+                "",
+                f"【计划】{len(steps)} 步",
+            ]
+            for i, s in enumerate(steps, 1):
+                overlay_lines.append(f"  {i}. {json.dumps(s, ensure_ascii=False)}")
+            sim.set_overlay("\n".join(overlay_lines))
+
         ok_all = True
         print("\n[执行] ...")
         for i, step in enumerate(steps, 1):
@@ -108,6 +119,8 @@ def run_instruction(
     print("\n[最终场景]")
     show_scene(states)
     print(f"[结果] {'任务完成' if ok_all else '存在失败步骤'}")
+    if sim is not None:
+        sim.set_overlay(None)  # 结束清除叠加文本
     return 0 if ok_all else 1
 
 

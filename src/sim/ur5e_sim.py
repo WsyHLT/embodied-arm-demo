@@ -90,6 +90,9 @@ GRIPPER_XML = """
           <geom name="finger_1_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"
             contype="0" conaffinity="0"/>
+          <geom name="finger_1_tip" type="box" size="0.006 0.013 0.006" pos="-0.01 0.08 0"
+            quat="0.966 0 0 0.259" rgba="0.45 0.45 0.45 1" mass="0.01" friction="1.2 0.1 0.02"
+            contype="0" conaffinity="0"/>
         </body>
         <body name="finger_2" pos="-0.025 0.1 0.0433">
           <joint name="gripper_2" type="slide" axis="-0.5 0 0.866" limited="true" range="-0.04 0.02"
@@ -97,12 +100,18 @@ GRIPPER_XML = """
           <geom name="finger_2_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"
             contype="0" conaffinity="0"/>
+          <geom name="finger_2_tip" type="box" size="0.006 0.013 0.006" pos="0.005 0.08 -0.0087"
+            quat="0.966 -0.224 0 -0.129" rgba="0.45 0.45 0.45 1" mass="0.01" friction="1.2 0.1 0.02"
+            contype="0" conaffinity="0"/>
         </body>
         <body name="finger_3" pos="-0.025 0.1 -0.0433">
           <joint name="gripper_3" type="slide" axis="-0.5 0 -0.866" limited="true" range="-0.04 0.02"
             armature="0.001"/>
           <geom name="finger_3_geom" type="box" size="0.007 0.04 0.007" pos="0 0.04 0"
             rgba="0.55 0.55 0.55 1" mass="0.02" friction="1.2 0.1 0.02"
+            contype="0" conaffinity="0"/>
+          <geom name="finger_3_tip" type="box" size="0.006 0.013 0.006" pos="0.005 0.08 0.0087"
+            quat="0.966 0.224 0 -0.129" rgba="0.45 0.45 0.45 1" mass="0.01" friction="1.2 0.1 0.02"
             contype="0" conaffinity="0"/>
         </body>
       </body>
@@ -559,6 +568,25 @@ class UR5eSim:
         """注册夹爪吸附回调。每个物理步(过轨迹伺服时)都会被调用,
         用于让被抓物体沿 TCP 轨迹平滑跟随, 而非运动结束时瞬移。"""
         self._attach_cb = cb
+
+    def set_overlay(self, text: str | None) -> None:
+        """在 3D 视图上叠加显示文本(左下), 用于可视化大脑思考/计划。
+
+        text 支持换行("\\n")。None 则清除。仅在渲染视图开启时生效。
+        """
+        if self._viewer is None:
+            return
+        try:
+            if not text:
+                self._viewer.clear_texts()
+                return
+            self._viewer.set_texts([(
+                mujoco.mjtFontScale.mjFONTSCALE_150,
+                mujoco.mjtGridPos.mjGRID_BOTTOMLEFT,
+                text, "",
+            )])
+        except Exception as exc:
+            print(f"[提示] 覆盖文本显示失败: {exc}")
 
     def close(self) -> None:
         if self._viewer is not None:
