@@ -40,15 +40,16 @@ def _object_half_z_local(shape: str, hs: tuple) -> float:
     return float(hs[2])
 
 
-def _geom_xml(name: str, shape: str, hs: tuple, mass: float) -> str:
-    """按几何形状生成 MuJoCo geom 的 XML 片段(颜色/反光由 obj_<name> 材质提供)。
+def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str:
+    """按几何形状生成 MuJoCo geom 的 XML 片段。
 
     MuJoCo 尺寸约定:
       box      -> size="hx hy hz"
       cylinder -> size="radius halfheight"
       sphere   -> size="radius"
     """
-    base = f'<geom name="{name}_geom" material="obj_{name}" mass="{mass}"'
+    r, g, b, a = rgba
+    base = f'<geom name="{name}_geom" rgba="{r} {g} {b} {a}" mass="{mass}"'
     if shape == "cylinder":
         size = f"{hs[0]} {hs[2]}"          # (半径, 半高)
         return f'{base} type="cylinder" size="{size}"/>\n'
@@ -133,21 +134,6 @@ def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
     mesh_abs = os.path.abspath(os.path.join(ASSET_DIR, "assets")).replace("\\", "/")
     ur5e_xml = ur5e_xml.replace('meshdir="assets"', f'meshdir="{mesh_abs}"')
 
-    # 注入材质资产: 让地面/桌面/物体有更真实的反射与高光(geom 不支持 specular,
-    # 需用 material)。物体材质用各自颜色 + 高光, 桌面木质感, 地面微反光。
-    object_mats = "".join(
-        f'<material class="ur5e" name="obj_{name}" rgba="{spec["rgba"][0]} {spec["rgba"][1]} '
-        f'{spec["rgba"][2]} {spec["rgba"][3]}" specular="0.4" shininess="0.55"/>'
-        for name, spec in TABLE_OBJECTS.items()
-    )
-    surface_mats = (
-        '<material class="ur5e" name="floor_mat" rgba="0.66 0.67 0.7 1" '
-        'specular="0.08" shininess="0.15"/>'
-        '<material class="ur5e" name="table_mat" rgba="0.5 0.4 0.3 1" '
-        'specular="0.5" shininess="0.5" reflectance="0.15"/>'
-    )
-    ur5e_xml = ur5e_xml.replace("</asset>", object_mats + surface_mats + "</asset>", 1)
-
     obj_blocks: list[str] = []
     TABLE_TOP_Z = 0.08  # 桌子顶面高度(0.04 桌厚 + 0.04 中心高)
     for name, (x, y) in objects.items():
@@ -157,7 +143,7 @@ def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
         shape = spec["shape"]
         mass = spec.get("mass", 0.15)
         start_z = TABLE_TOP_Z + _object_half_z_local(shape, hs)  # 略高于桌面, 自由落体落稳
-        geom = _geom_xml(name, shape, hs, mass)
+        geom = _geom_xml(name, shape, hs, rgba, mass)
         obj_blocks.append(
             f'<body name="{name}" pos="{x} {y} {start_z:.3f}">'
             f'<freejoint name="{name}_joint"/>'
@@ -165,17 +151,10 @@ def _build_scene_xml(objects: dict[str, dict] | None = None) -> str:
             f"</body>"
         )
     world_extra = (
-        # 多光源: 主光(带阴影) + 补光 + 轮廓光, 让机械臂与物体更立体
-        '<light name="key_light" dir="-0.5 -0.25 -0.8" diffuse="0.9 0.88 0.85" '
-        'specular="0.4 0.4 0.4" castshadow="true"/>'
-        '<light name="fill_light" dir="0.7 -0.2 -0.4" diffuse="0.35 0.4 0.5" '
-        'specular="0.1 0.1 0.1"/>'
-        '<light name="rim_light" pos="0.2 0.7 0.6" dir="0 -0.2 -1" diffuse="0.3 0.3 0.35" '
-        'specular="0.2 0.2 0.2"/>'
         '<geom name="floor" type="plane" size="2 2 0.1" pos="0 0 -0.01" '
-        'material="floor_mat"/>'
+        'rgba="0.75 0.75 0.75 1"/>'
         '<geom name="table" type="box" size="0.6 0.6 0.04" pos="0.35 0 0.04" '
-        'material="table_mat" friction="0.9 0.05 0.001"/>'
+        'rgba="0.6 0.55 0.5 1"/>'
         '<camera name="top_cam" pos="0.35 0 0.9" xyaxes="1 0 0 0 1 0" '
         'fovy="60" mode="fixed"/>'
         + "".join("    " + b for b in obj_blocks)
