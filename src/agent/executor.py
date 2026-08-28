@@ -173,9 +173,13 @@ class BrainExecutor:
         return None
 
     def _pick_free_spot(self, states: dict[str, dict], exclude=()) -> np.ndarray:
-        """找一个离所有物体都够远的空位(几何计算, 无决策)。"""
+        """找一个离所有物体都够远的空位(几何计算, 无决策)。
+
+       候选点放在机械臂可达区(x 正、避开基座正下方), 避免挪出物体落到
+        工作空间边缘导致后续放置 IK 失败。
+        """
         occupied = [states[n]["position"][:2] for n in states if n not in exclude]
-        candidates = [(0.60, 0.30), (0.0, -0.45), (-0.10, 0.40), (0.20, 0.40), (0.0, 0.45)]
+        candidates = [(0.62, 0.30), (0.62, -0.30), (0.30, 0.42), (0.30, -0.42), (0.75, 0.0)]
         best, best_d = None, -1.0
         for cx, cy in candidates:
             d = min([np.hypot(cx - ox, cy - oy) for ox, oy in occupied], default=999.0)

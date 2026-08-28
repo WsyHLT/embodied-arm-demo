@@ -49,6 +49,26 @@ OBJECTS: list[dict] = [
         "aliases": ["绿色圆柱", "绿色的圆柱", "绿色柱子", "绿圆柱", "绿的", "绿色的", "绿块", "圆柱"],
         "clip": "a green cylinder",
     },
+    {
+        "name": "yellow_cylinder",
+        "shape": "cylinder",
+        "half_size": (0.03, 0.03, 0.04),
+        "rgba": (0.92, 0.78, 0.1, 1.0),
+        "mass": 0.15,
+        "pos": (0.2, 0.35),
+        "aliases": ["黄色圆柱", "黄色的圆柱", "黄色柱子", "黄圆柱", "黄的", "黄色的"],
+        "clip": "a yellow cylinder",
+    },
+    {
+        "name": "white_cube",
+        "shape": "box",
+        "half_size": (0.03, 0.03, 0.03),
+        "rgba": (0.92, 0.92, 0.92, 1.0),
+        "mass": 0.15,
+        "pos": (0.2, -0.35),
+        "aliases": ["白色方块", "白色的方块", "白色立方体", "白方块", "白块", "白的", "白色的"],
+        "clip": "a white cube",
+    },
 ]
 
 # ---------- 派生结构(由 OBJECTS 自动生成, 不要手动改下面) ----------

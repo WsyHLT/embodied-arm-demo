@@ -43,7 +43,7 @@ def make_ctrl():
     arm = MuJoCoArm(sim)
     ctl = PickPlaceController(arm, sim=sim)
     vis = VisionSystem(sim, use_clip=False)
-    parser = InstructionParser(api_key="", available_objects=AVAILABLE_OBJECTS)
+    parser = InstructionParser(api_key="", available_objects=AVAILABLE_OBJECTS, use_llm=False)
     return sim, arm, ctl, vis, parser
 
 
@@ -53,7 +53,7 @@ def pos(sim, name) -> np.ndarray:
 
 # ---------- 1. 规则解析 ----------
 def test_parse():
-    parser = InstructionParser(api_key="", available_objects=AVAILABLE_OBJECTS)
+    parser = InstructionParser(api_key="", available_objects=AVAILABLE_OBJECTS, use_llm=False)
     cases = [
         ("帮我拿起蓝色方块放到红色方块旁边", "blue_cube", "red_cube", "beside"),
         ("把绿色的放到红色的上面", "green_cylinder", "red_cube", "stack"),

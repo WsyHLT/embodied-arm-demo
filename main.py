@@ -66,9 +66,13 @@ def resolve_destination(
 
 
 def pick_free_spot(objects: dict[str, dict], exclude: tuple[str, ...] = ()) -> np.ndarray:
-    """在桌面上找一个离所有物体都较远的空位(用于临时挪放/重排)。"""
+    """在桌面上找一个离所有物体都较远的空位(用于临时挪放/重排)。
+
+    候选点全部放在机械臂可达区(x 正、避开基座正下方), 否则换序挪出的物体
+    可能落到工作空间边缘导致后续放置 IK 失败。
+    """
     occupied = [objects[n]["position"][:2] for n in objects if n not in exclude]
-    candidates = [(0.60, 0.30), (0.0, -0.45), (-0.10, 0.40), (0.20, 0.40), (0.0, 0.45)]
+    candidates = [(0.62, 0.30), (0.62, -0.30), (0.30, 0.42), (0.30, -0.42), (0.75, 0.0)]
     best: tuple[float, tuple[float, float]] | None = None
     for cx, cy in candidates:
         d = min([np.hypot(cx - ox, cy - oy) for ox, oy in occupied], default=999.0)
