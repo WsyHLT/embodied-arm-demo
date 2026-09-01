@@ -477,14 +477,18 @@ class UR5eSim:
         hi_all = np.array([self.model.jnt_range[self._joint_ids[n]][1] for n in self.JOINT_NAMES])
         bounds = (lo_all, hi_all)
 
-        # warm-start 起点: 当前解 → 上次成功解 → 随机
-        starts = [np.clip(self.joint_q.copy(), lo_all, hi_all)]
+        # warm-start 起点: 当前解 → 肩部翻转分支(探索另一侧, 避免总选到穿模/左转解)
+        # → 上次成功解 → 随机
+        cur = self.joint_q.copy()
+        flip = cur.copy()
+        flip[0] = cur[0] + np.pi  # shoulder_pan 翻转, 探另一分支
+        starts = [np.clip(cur, lo_all, hi_all), np.clip(flip, lo_all, hi_all)]
         if self._last_ik_q is not None:
             starts.append(np.clip(self._last_ik_q.copy(), lo_all, hi_all))
         for _ in range(max(0, n_restarts - len(starts))):
             starts.append(rng.uniform(lo_all, hi_all))
 
-        best: tuple[float, float, np.ndarray] | None = None  # (误差, 条件数, q)
+        best: tuple[float, float, float, np.ndarray] | None = None  # (误差, 条件数, 末端间距, q)
         try:
             for q0 in starts:
                 res = least_squares(
@@ -501,25 +505,40 @@ class UR5eSim:
                 tcp = pos + rot @ np.array([0.0, 0.0, 0.1])
                 err = float(np.linalg.norm(tcp - target_pos))
                 cond = self._pose_jacobian_cond(q)
-                # 极奇异解直接剔除;
-                # 否则: 误差最小优先, 误差相近时取条件数更小(远离奇异)的解
+                clear = self._tool_clearance(q)
+                # 极奇异解剔除; 误差最小优先, 误差接近时偏好末端更远离臂(不穿模)
                 if cond < max_cond:
                     if best is None:
-                        best = (err, cond, q.copy())
-                    elif err < best[0] - 0.002:
-                        best = (err, cond, q.copy())   # 明显更准
-                    elif abs(err - best[0]) <= 0.002 and cond < best[1]:
-                        best = (err, cond, q.copy())   # 同精度但更良态
-                if err < 0.008 and cond < max_cond:
+                        best = (err, cond, clear, q.copy())
+                    elif err < best[0] - 0.005:
+                        best = (err, cond, clear, q.copy())   # 明显更准
+                    elif abs(err - best[0]) <= 0.005 and clear > best[2]:
+                        best = (err, cond, clear, q.copy())   # 同级更不穿模
+                # 早期退出: 找到良态 且 末端不贴臂(不穿模) 的好解即返回;
+                # 若该构型贴臂(clearance 低→左转穿模风险), 不返回, 继续探另一分支。
+                if err < 0.008 and cond < max_cond and clear > 0.40:
                     self._last_ik_q = q.copy()
                     return q
         finally:
             self._apply_joint_q(orig_joint, step=False)
 
         if best is not None and best[0] < 0.015:
-            self._last_ik_q = best[2].copy()
-            return best[2]
+            self._last_ik_q = best[3].copy()
+            return best[3]
         return None
+
+    def _tool_clearance(self, q: np.ndarray) -> float:
+        """末端(wrist_3_link)与臂身(shoulder/upper/forearm)的最小距离。
+
+        用于度量夹爪是否贴到自身机械臂(穿模/自碰风险)。距离越大, 臂越舒展。
+        """
+        self._apply_joint_q(np.asarray(q, dtype=float), step=False)
+        w = self.data.xpos[self._body_wrist3]
+        dmin = float("inf")
+        for name in ("shoulder_link", "upper_arm_link", "forearm_link"):
+            bid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, name)
+            dmin = min(dmin, float(np.linalg.norm(w - self.data.xpos[bid])))
+        return dmin
 
     # ---------- 内部物理推进 ----------
     def _serve_joint_q(self, q: np.ndarray) -> None:
