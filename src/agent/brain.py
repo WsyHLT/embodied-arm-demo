@@ -213,3 +213,53 @@ class EmbodiedBrain:
             "reasoning": "规则兜底: 单步抓放",
             "steps": [{"action": "pick_place", "target": target, "place": {"type": "free"}}],
         }
+
+    def verify(self, instruction: str, final_states: dict[str, dict]) -> dict:
+        """扫描执行后的物体位置, 校验任务是否真正完成。
+
+        Returns: {"done": bool, "reason": str, "unmet": [物体名]}
+        API 失败或无 key 时回退为尽力判断(无法确认则不报成功)。
+        """
+        sys_prompt = (
+            "你是机械臂任务验收员。用户给出任务指令, 以及任务执行后的最终场景"
+            "(每个物体的当前中心位置 [x,y,z] 与半尺寸)。请判断任务是否真正完成: "
+            "用户要求的物体是否都到达预期位置(比如叠放、放到某物体旁/上方)。\n"
+            '只输出 JSON: {"done": true/false, "reason": "<一句话判定>", '
+            '"unmet": [<未达要求的物体名, 空数组表示全部达标>]}'
+        )
+        user = (
+            f"【任务指令】\n{instruction}\n\n"
+            f"【最终场景物体位置】\n{self._scene_desc(final_states)}\n\n"
+            "请校验任务是否完成。"
+        )
+        try:
+            resp = requests.post(
+                f"{self._base_url}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": self._model,
+                    "messages": [
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": user},
+                    ],
+                    "temperature": 0.0,
+                    "max_tokens": 300,
+                    "response_format": {"type": "json_object"},
+                },
+                timeout=45,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"]
+            m = re.search(r"\{.*\}", content, re.DOTALL)
+            if not m:
+                raise ValueError("校验未返回 JSON")
+            result = json.loads(m.group(0))
+            result.setdefault("done", False)
+            result.setdefault("reason", "")
+            result.setdefault("unmet", [])
+            return result
+        except Exception as exc:
+            return {"done": False, "reason": f"自动校验失败: {exc}", "unmet": []}

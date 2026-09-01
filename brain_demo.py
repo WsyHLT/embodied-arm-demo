@@ -116,9 +116,21 @@ def run_instruction(
     print("\n[最终场景]")
     show_scene(states)
     print(f"[结果] {'任务完成' if ok_all else '存在失败步骤'}")
+
+    # 扫描所有物品位置, 校验任务是否真正完成(与最终场景无关, 对照用户意图)
+    print("\n[校验] 扫描所有物品位置, 确认任务是否完成 ...")
+    verdict = brain.verify(instruction, states)
+    done = bool(verdict.get("done"))
+    reason = verdict.get("reason", "")
+    unmet = verdict.get("unmet", [])
+    mark = "✔ 任务已完成" if done else "✘ 任务未完成"
+    print(f"[校验] {mark} | {reason}")
+    if unmet:
+        print(f"[校验] 未达要求的物体: {', '.join(unmet)}")
+
     if sim is not None:
         sim.set_overlay(None)  # 结束清除叠加文本
-    return 0 if ok_all else 1
+    return 0 if (ok_all and done) else 1
 
 
 def run_interactive(*, react: bool = False, render: bool = False) -> int:
