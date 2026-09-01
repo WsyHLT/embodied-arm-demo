@@ -92,24 +92,41 @@ class InstructionParser:
     def _rule_parse(self, instruction: str) -> dict:
         """基于物体别名的轻量规则解析。
 
-        按各别名在指令中的**出现位置**排序(句子里先提到的物体是 target,
-        后提到的作为 destination) —— 而不是按字典顺序取第一个, 否则
-        "拿蓝色放到红色旁边"会误把"红色"(字典序在前)当成目标。
+        按各物体在指令中的**出现位置**排序(句子里先提到的是 target,
+        后提到的作为 destination)。每个物体取**最长命中别名**, 并做区间消除:
+        若某短别名(如"圆柱")被更长别名(如"黄色圆柱")的子串覆盖, 则丢弃。
+        否则,"把黄色圆柱放到白色方块上"会被误判出 green(因"圆柱"→green)。
         """
-        hits: list[tuple[int, str]] = []
+        # 按物体聚合别名
+        groups: dict[str, list[str]] = {}
         for alias, canon in OBJECT_ALIASES.items():
-            idx = instruction.find(alias)
-            if idx != -1:
-                hits.append((idx, canon))
-        if not hits:
+            groups.setdefault(canon, []).append(alias)
+
+        # 每个物体收集其在指令中命中的别名, 只保留最长者
+        matched: list[tuple[int, int, str]] = []  # (start, end, canon)
+        for canon, aliases in groups.items():
+            found = [(instruction.find(a), a) for a in aliases if instruction.find(a) != -1]
+            if not found:
+                continue
+            best_a = max(found, key=lambda x: len(x[1]))  # 最长命中别名
+            idx = instruction.find(best_a[1])
+            matched.append((idx, idx + len(best_a[1]), canon))
+
+        # 区间消除: 长别名优先, 被覆盖的短别名丢弃(如"圆柱"嵌套在"黄色圆柱"内)
+        matched.sort(key=lambda x: -(x[1] - x[0]))  # 长优先
+        accepted: list[tuple[int, int, str]] = []
+        for start, end, canon in matched:
+            if any(c == canon for _, _, c in accepted):
+                continue
+            if any(start < ae and end > s for s, ae, _ in accepted):
+                continue  # 与已接受区间重叠(被子串覆盖), 丢弃该短别名
+            accepted.append((start, end, canon))
+        accepted.sort(key=lambda x: x[0])
+
+        seen = [c for _, _, c in accepted]
+        if not seen:
             return {"action": "unknown", "target": None, "destination": None,
                     "placement": "beside", "reason": "规则未命中"}
-        # 按出现位置排序, 并合并同一物体被多个别名命中的情况
-        hits.sort(key=lambda x: x[0])
-        seen: list[str] = []
-        for _, canon in hits:
-            if canon not in seen:
-                seen.append(canon)
         # target 取先提到的物体; destination 取第一个与 target 不同的物体
         target = seen[0]
         dest = None

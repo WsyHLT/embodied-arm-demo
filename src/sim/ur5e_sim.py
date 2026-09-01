@@ -49,7 +49,9 @@ def _geom_xml(name: str, shape: str, hs: tuple, rgba: tuple, mass: float) -> str
       sphere   -> size="radius"
     """
     r, g, b, a = rgba
-    base = f'<geom name="{name}_geom" rgba="{r} {g} {b} {a}" mass="{mass}"'
+    # solref: 更硬的接触刚度, 防止自由物体(尤其圆柱)在窄支撑上穿透
+    base = (f'<geom name="{name}_geom" rgba="{r} {g} {b} {a}" mass="{mass}" '
+            f'solref="0.005 0.8" friction="1.0 0.15 0.02"')
     if shape == "cylinder":
         size = f"{hs[0]} {hs[2]}"          # (半径, 半高)
         return f'{base} type="cylinder" size="{size}"/>\n'
@@ -212,6 +214,7 @@ class UR5eSim:
         self._last_ik_q: np.ndarray | None = None  # 上次 IK 解(warm-start 缓存)
         self._cache_joint_ids()
         self._tune_actuators()
+        self._tune_free_body_damping()
         # 先把物理推进到稳定状态(机械臂到home、物体落稳), 再打开 viewer。
         # 否则渲染模式会先弹窗、再逐帧播放"机械臂就位 + 物体下落"的过渡帧,
         # 用户看到的就是横伸机械臂 + 悬空物体的错误起始画面。
@@ -270,6 +273,21 @@ class UR5eSim:
         """
         fr = self.model.actuator_forcerange.reshape(-1, 2)
         fr[:] = np.array([-150.0, 150.0])
+
+    def _tune_free_body_damping(self) -> None:
+        """给自由物体(free body)的旋转自由度加阻尼, 抑制滚动。
+
+        圆柱等滚动体放在窄支撑(方块顶)上极不稳定, 稍有扰动就滚落穿地。
+        给 free body 的旋转 dof 加阻尼, 让圆柱更"稳", 叠放/搬运不轻易滚动散落。
+        方块物体不受影响(旋转已是稳定姿态)。
+        """
+        m = self.model
+        for name in TABLE_OBJECTS:
+            bid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, name)
+            adr = m.body_dofadr[bid]
+            if adr >= 0:
+                # free body 6 个 dof: 3 平移 + 3 旋转; 给旋转部分加阻尼
+                m.dof_damping[adr + 3:adr + 6] = 0.5
 
     def _setup_scene(self) -> None:
         # 手动将机械臂关节设为 home 姿态并伺服保持(不用 mj_resetDataKeyframe,
