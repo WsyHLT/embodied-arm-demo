@@ -412,7 +412,7 @@ class UR5eSim:
                  max_cond: float = 400.0) -> np.ndarray | None:
         """基于 scipy least_squares 的多起点数值 IK(带 warm-start 与奇异规避)。
 
-        跟踪 TCP 点(site + 0.1m x 偏移), 与 tcp_pose 定义一致。
+        跟踪 TCP 点(site + 0.1m z 偏移), 与 tcp_pose 定义一致。
         位置误差权重 1.0, 姿态误差权重 0.3(位置优先, 抓取场景足够)。
         改进:
           - warm-start: 优先从当前解 + 上一目标解出发, 收敛更快更稳
